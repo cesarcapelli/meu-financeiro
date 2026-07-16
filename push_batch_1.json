@@ -1,0 +1,12 @@
+{
+  "owner": "cesarcapelli",
+  "repo": "finance-app-mobile",
+  "branch": "main",
+  "message": "Initial commit: Core App Files",
+  "files": [
+    {
+      "path": "src/app/App.tsx",
+      "content": ""
+    }
+  ]
+}

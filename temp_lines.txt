@@ -1,0 +1,11 @@
+          setShowAddCard(false);
+          setCardToEdit(null);
+        }}
+        cardToEdit={cardToEdit}
+      />
+      <AddBudgetSheet open={showAddBudget} onClose={() => setShowAddBudget(false)} />
+      <ImportCsvSheet open={showImport} onClose={() => setShowImport(false)} />
+      {user.homeId && <HomeSettingsSheet open={showHomeSettings} onClose={() => setShowHomeSettings(false)} homeId={user.homeId} />}
+
+      {/* Account sheet */}
+      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Conta">
