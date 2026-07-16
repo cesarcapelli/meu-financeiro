@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.DS_Store
+firebase-applet-config.json
+firebase-blueprint.json
+patch_*.cjs
+patch_*.sh
+fix*.sh
+temp_*.txt
