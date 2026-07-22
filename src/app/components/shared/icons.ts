@@ -11,6 +11,14 @@ import {
   Plane,
   Laptop,
   PiggyBank,
+  HeartPulse,
+  GraduationCap,
+  Sparkles,
+  Tag,
+  Bus,
+  Film,
+  UserCheck,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,8 +36,17 @@ export const ICONS: Record<string, LucideIcon> = {
   Plane,
   Laptop,
   PiggyBank,
+  HeartPulse,
+  GraduationCap,
+  Sparkles,
+  Tag,
+  Bus,
+  Film,
+  UserCheck,
+  Zap,
 };
 
 export function iconFor(name: string | undefined): LucideIcon {
   return (name && ICONS[name]) || Wallet;
 }
+

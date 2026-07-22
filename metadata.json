@@ -1,0 +1,6 @@
+{
+  "name": "MyFin",
+  "description": "Aplicativo de gestão financeira pessoal e familiar inteligente com suporte a divisão de contas, controle de cartões e importação.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

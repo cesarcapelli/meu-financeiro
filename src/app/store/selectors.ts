@@ -89,49 +89,42 @@ export function getCardInvoice(state: FinanceState, bank: string, month: string)
   return txForMonth(state, month).filter((t) => t.type === "out" && t.card === bank);
 }
 
-// Categorized spending by type for a beautiful Pie/Donut Chart breakdown.
+// Categorized spending by real Category for Donut Chart breakdown.
 export function getSpendingByType(state: FinanceState, month: string) {
   const tx = txForMonth(state, month).filter((t) => t.type === "out");
 
-  let fixo = 0;
-  let variavel = 0;
-  const cartoes: Record<string, number> = {};
+  const catTotals: Record<string, number> = {};
 
   tx.forEach((t) => {
     const val = Math.abs(t.value);
-    if (t.card === "Pix") {
-      if (t.bucket === "fixo") {
-        fixo += val;
-      } else {
-        variavel += val;
-      }
-    } else {
-      const cardName = `Cartão ${t.card}`;
-      cartoes[cardName] = (cartoes[cardName] || 0) + val;
-    }
+    const catName = t.cat || "Outros";
+    catTotals[catName] = (catTotals[catName] || 0) + val;
   });
 
-  const result: { name: string; value: number; color: string }[] = [];
+  const categoryColors: Record<string, string> = {
+    "Alimentação": "#F59E0B",   // Amber / Orange
+    "Transporte": "#3B82F6",    // Blue
+    "Moradia": "#10B981",       // Emerald Green
+    "Lazer": "#EC4899",         // Pink / Rose
+    "Saúde": "#EF4444",         // Red
+    "Educação": "#8B5CF6",      // Purple / Violet
+    "Assinaturas": "#06B6D4",   // Cyan
+    "Contas": "#0284C7",        // Sky Blue
+    "Outros": "#6B7280",        // Gray
+  };
 
-  if (fixo > 0) {
-    result.push({ name: "Fixos (Pix)", value: fixo, color: "var(--chart-1)" });
-  }
-  if (variavel > 0) {
-    result.push({ name: "Variáveis (Pix)", value: variavel, color: "var(--chart-2)" });
-  }
+  const fallbackColors = [
+    "#F59E0B", "#3B82F6", "#10B981", "#EC4899",
+    "#EF4444", "#8B5CF6", "#06B6D4", "#6B7280",
+    "#D97706", "#2563EB", "#059669", "#DB2777"
+  ];
 
-  // Predefined beautiful card colors
-  const cardColors = ["var(--chart-5)", "var(--chart-4)", "var(--destructive)", "var(--primary)"];
-  Object.keys(cartoes).forEach((cardName, idx) => {
-    if (cartoes[cardName] > 0) {
-      result.push({
-        name: cardName,
-        value: cartoes[cardName],
-        color: cardColors[idx % cardColors.length],
-      });
-    }
-  });
+  const sortedCategories = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
 
-  return result;
+  return sortedCategories.map(([name, value], idx) => ({
+    name,
+    value,
+    color: categoryColors[name] || fallbackColors[idx % fallbackColors.length],
+  }));
 }
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { Upload, FileText, Copy } from "lucide-react";
+import { Upload, FileText, Copy, Download } from "lucide-react";
 import { BottomSheet } from "../shared/BottomSheet";
 import { SelectField, PrimaryButton, EmptyState } from "../shared/ui";
 import { parseLoose, fmt } from "../shared/currency";
@@ -187,16 +187,26 @@ export function ImportCsvSheet({ open, onClose }: { open: boolean; onClose: () =
           <div className="mt-5 p-3.5 bg-muted/40 border border-border/50 rounded-xl">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-foreground">Modelo Excel / Planilha</span>
-              <button
-                onClick={() => {
-                  const modelText = "Data;Descrição;Valor;Categoria\n12/07/2026;Salário;11400;Renda\n12/07/2026;Aluguel;-2100;Moradia\n12/07/2026;Mercado;-487;Alimentação";
-                  navigator.clipboard.writeText(modelText);
-                  toast.success("Modelo copiado! Cole no Excel ou Bloco de Notas.");
-                }}
-                className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Copy size={11} /> Copiar CSV
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/modelo_importacao.csv"
+                  download="modelo_importacao.csv"
+                  className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Download size={11} /> Baixar Modelo
+                </a>
+                <span className="text-muted-foreground text-[10px]">·</span>
+                <button
+                  onClick={() => {
+                    const modelText = "Data;Descrição;Valor;Categoria\n10/07/2026;Salário;7500;Renda\n12/07/2026;Aluguel;-2100;Moradia\n15/07/2026;Mercado;-620;Alimentação";
+                    navigator.clipboard.writeText(modelText);
+                    toast.success("Modelo copiado! Cole no Excel ou Bloco de Notas.");
+                  }}
+                  className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Copy size={11} /> Copiar CSV
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               Crie uma planilha com as colunas <strong className="text-foreground">Data</strong>, <strong className="text-foreground">Descrição</strong>, <strong className="text-foreground">Valor</strong> (com sinal de menos para despesas, ex: -487,00) e <strong className="text-foreground">Categoria</strong>. Depois, salve no Excel como <strong className="text-foreground">CSV (separado por ponto e vírgula)</strong> e faça o upload!

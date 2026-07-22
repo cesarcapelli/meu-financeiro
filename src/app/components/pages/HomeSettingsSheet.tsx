@@ -42,6 +42,11 @@ export function HomeSettingsSheet({ open, onClose, homeId }: HomeSettingsSheetPr
         setName(data.name || "");
         setPhotoURL(data.photoURL || "");
         setPreview(data.photoURL || "");
+        if (data.name) {
+          try {
+            window.localStorage.setItem("finance-house-name", data.name);
+          } catch {}
+        }
       }
     } catch (e) {
       console.error(e);
@@ -153,6 +158,10 @@ export function HomeSettingsSheet({ open, onClose, homeId }: HomeSettingsSheetPr
         name,
         photoURL: newPhotoUrl
       });
+
+      try {
+        window.localStorage.setItem("finance-house-name", name || "Minha Casa");
+      } catch {}
 
       toast.success("Configurações atualizadas!");
       onClose();

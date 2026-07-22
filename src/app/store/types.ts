@@ -23,6 +23,8 @@ export interface Transaction {
   splitPercent?: number; // e.g., 50 for 50%
   splitWith?: string;    // name of the person
   originalValue?: number; // total amount of purchase before splitting
+  isRecurring?: boolean; // true for recurring / fixed expenses (e.g. financiamento, aluguel)
+  isHouse?: boolean; // true if this expense belongs to the "Casa" tab
 }
 
 export interface Card {

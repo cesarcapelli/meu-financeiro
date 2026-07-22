@@ -39,6 +39,7 @@ import { EditBudgetSheet } from "./components/sheets/EditBudgetSheet";
 import { AddCardSheet } from "./components/sheets/AddCardSheet";
 import { AddBudgetSheet } from "./components/sheets/AddBudgetSheet";
 import { ImportCsvSheet } from "./components/sheets/ImportCsvSheet";
+import { AiInputSheet } from "./components/sheets/AiInputSheet";
 import { HomeSettingsSheet } from "./components/pages/HomeSettingsSheet";
 import { LoginPage, type AuthUser } from "./components/pages/LoginPage";
 import { BottomSheet } from "./components/shared/BottomSheet";
@@ -78,6 +79,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [cardToEdit, setCardToEdit] = useState<Card | null>(null);
   const [showAddBudget, setShowAddBudget] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showAiInput, setShowAiInput] = useState(false);
   const [showHomeSettings, setShowHomeSettings] = useState(false);
   const [activeCard, setActiveCard] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -356,15 +358,27 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             </motion.div>
           </AnimatePresence>
         </main>
-        {/* Floating Action Button */}
+        {/* Floating Action Buttons */}
         {page !== "onboarding" && (
-          <button
-            onClick={() => openAddTx()}
-            aria-label="Nova transação"
-            className="absolute bottom-24 right-5 w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] active:scale-90 transition-all hover:bg-primary/95 z-40 border border-primary/50"
-          >
-            <Plus size={22} className="text-primary-foreground" strokeWidth={2.5} />
-          </button>
+          <div className="absolute bottom-24 right-5 flex items-center gap-2.5 z-40">
+            <button
+              onClick={() => setShowAiInput(true)}
+              aria-label="Lançamento por IA"
+              title="Lançamento por Texto Livre (IA)"
+              className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 via-purple-600 to-indigo-600 flex items-center justify-center shadow-[0_8px_30px_rgba(124,58,237,0.4)] active:scale-90 transition-all hover:scale-105 border border-white/20 cursor-pointer"
+            >
+              <Sparkles size={20} className="text-white animate-pulse" />
+            </button>
+
+            <button
+              onClick={() => openAddTx()}
+              aria-label="Nova transação"
+              title="Nova transação manual"
+              className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] active:scale-90 transition-all hover:bg-primary/95 border border-primary/50 cursor-pointer"
+            >
+              <Plus size={22} className="text-primary-foreground" strokeWidth={2.5} />
+            </button>
+          </div>
         )}
         <nav className="shrink-0 flex items-center justify-around border-t border-border bg-background px-2 pb-4 pt-2 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.3)] z-50">
           {navItems.map((item) => {
@@ -409,6 +423,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
       />
       <AddBudgetSheet open={showAddBudget} onClose={() => setShowAddBudget(false)} />
       <ImportCsvSheet open={showImport} onClose={() => setShowImport(false)} />
+      <AiInputSheet open={showAiInput} onClose={() => setShowAiInput(false)} />
       <HomeSettingsSheet open={showHomeSettings} onClose={() => setShowHomeSettings(false)} homeId={user.homeId || ""} />
 
       {/* Account sheet */}
