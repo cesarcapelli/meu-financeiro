@@ -9,6 +9,7 @@ import {
   Bell,
   Search,
   Plus,
+  PlusCircle,
   Wallet,
   ArrowRightLeft,
   Eye,
@@ -40,6 +41,7 @@ import { AddCardSheet } from "./components/sheets/AddCardSheet";
 import { AddBudgetSheet } from "./components/sheets/AddBudgetSheet";
 import { ImportCsvSheet } from "./components/sheets/ImportCsvSheet";
 import { AiInputSheet } from "./components/sheets/AiInputSheet";
+import { NewTransactionChoiceSheet } from "./components/sheets/NewTransactionChoiceSheet";
 import { HomeSettingsSheet } from "./components/pages/HomeSettingsSheet";
 import { LoginPage, type AuthUser } from "./components/pages/LoginPage";
 import { BottomSheet } from "./components/shared/BottomSheet";
@@ -80,6 +82,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [showAddBudget, setShowAddBudget] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showAiInput, setShowAiInput] = useState(false);
+  const [showTxChoice, setShowTxChoice] = useState(false);
   const [showHomeSettings, setShowHomeSettings] = useState(false);
   const [activeCard, setActiveCard] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -314,7 +317,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
         )}
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto px-5 pb-4 scrollbar-hide">
+        <main className="flex-1 overflow-y-auto px-5 pb-6 scrollbar-hide">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={page}
@@ -333,9 +336,10 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
                 {page === "dashboard" && (
                   <DashboardPage
                     onOpenTx={setDetailTx}
-                    onAdd={() => openAddTx()}
+                    onAdd={() => setShowTxChoice(true)}
                     goTo={setPage}
                     onStartOnboarding={() => setPage("onboarding")}
+                    onOpenAiInput={() => setShowAiInput(true)}
                   />
                 )}
                 {page === "casa" && <CasaPage onOpenSettings={() => setShowHomeSettings(true)} />}
@@ -358,55 +362,67 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             </motion.div>
           </AnimatePresence>
         </main>
-        {/* Floating Action Buttons */}
-        {page !== "onboarding" && (
-          <div className="absolute bottom-24 right-5 flex items-center gap-2.5 z-40">
-            <button
-              onClick={() => setShowAiInput(true)}
-              aria-label="Lançamento por IA"
-              title="Lançamento por Texto Livre (IA)"
-              className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 via-purple-600 to-indigo-600 flex items-center justify-center shadow-[0_8px_30px_rgba(124,58,237,0.4)] active:scale-90 transition-all hover:scale-105 border border-white/20 cursor-pointer"
-            >
-              <Sparkles size={20} className="text-white animate-pulse" />
-            </button>
 
-            <button
-              onClick={() => openAddTx()}
-              aria-label="Nova transação"
-              title="Nova transação manual"
-              className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] active:scale-90 transition-all hover:bg-primary/95 border border-primary/50 cursor-pointer"
-            >
-              <Plus size={22} className="text-primary-foreground" strokeWidth={2.5} />
-            </button>
-          </div>
-        )}
-        <nav className="shrink-0 flex items-center justify-around border-t border-border bg-background px-2 pb-4 pt-2 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.3)] z-50">
-          {navItems.map((item) => {
-            const active = page === item.id;
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setPage(item.id)}
-                aria-label={item.label}
-                className={`relative flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-colors ${active ? "text-foreground" : "text-muted-foreground"}`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="nav-pill"
-                    className="absolute inset-0 rounded-xl bg-muted"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  />
-                )}
-                <Icon size={20} strokeWidth={active ? 2.5 : 1.8} className="relative" />
-                <span className="text-[10px] font-semibold tracking-wide relative">{item.label}</span>
-              </button>
-            );
-          })}
+        {/* Integrated Clean Navigation Bar */}
+        <nav className="shrink-0 flex items-center justify-around border-t border-border/80 bg-background/95 backdrop-blur-md px-3 pb-4 pt-2 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.3)] z-50">
+          {/* Início */}
+          <button
+            onClick={() => setPage("dashboard")}
+            aria-label="Início"
+            className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer ${page === "dashboard" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {page === "dashboard" && (
+              <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-muted" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
+            )}
+            <LayoutDashboard size={20} strokeWidth={page === "dashboard" ? 2.5 : 1.8} className="relative" />
+            <span className="text-[10px] font-semibold tracking-wide relative">Início</span>
+          </button>
+
+          {/* Casa */}
+          <button
+            onClick={() => setPage("casa")}
+            aria-label="Casa"
+            className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer ${page === "casa" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {page === "casa" && (
+              <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-muted" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
+            )}
+            <Home size={20} strokeWidth={page === "casa" ? 2.5 : 1.8} className="relative" />
+            <span className="text-[10px] font-semibold tracking-wide relative">Casa</span>
+          </button>
+
+          {/* Novo Lançamento */}
+          <button
+            onClick={() => setShowTxChoice(true)}
+            aria-label="Novo Lançamento"
+            className="relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer text-muted-foreground hover:text-foreground active:scale-95"
+          >
+            <PlusCircle size={20} strokeWidth={1.8} className="relative" />
+            <span className="text-[10px] font-semibold tracking-wide relative">Novo</span>
+          </button>
+
+          {/* Carteira */}
+          <button
+            onClick={() => setPage("carteira")}
+            aria-label="Carteira"
+            className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer ${page === "carteira" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {page === "carteira" && (
+              <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-muted" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
+            )}
+            <Wallet size={20} strokeWidth={page === "carteira" ? 2.5 : 1.8} className="relative" />
+            <span className="text-[10px] font-semibold tracking-wide relative">Carteira</span>
+          </button>
         </nav>
       </div>
 
       {/* Sheets */}
+      <NewTransactionChoiceSheet
+        open={showTxChoice}
+        onClose={() => setShowTxChoice(false)}
+        onSelectAi={() => setShowAiInput(true)}
+        onSelectManual={() => openAddTx()}
+      />
       <AddTransactionSheet open={showAddTx} onClose={() => setShowAddTx(false)} defaultCard={addTxCard} />
       <TransactionDetailSheet tx={detailTx} onClose={() => setDetailTx(null)} />
       <AddGoalSheet open={showAddGoal} onClose={() => setShowAddGoal(false)} />

@@ -25,6 +25,19 @@ export function CasaPage({ onOpenSettings }: CasaPageProps) {
   const [isSplit, setIsSplit] = useState(true);
   const [partnerName, setPartnerName] = useState("");
 
+  // Dynamic partner name from localStorage or transactions
+  const foundInTxs = state.transactions.find(
+    (t) => t.isSplit && t.splitWith && t.splitWith.trim() && !["Parceiro", "Parceiro(a)", "Membro da Casa"].includes(t.splitWith)
+  )?.splitWith;
+  const storedPartner = (typeof window !== "undefined" ? localStorage.getItem("finance-partner-name") : "") || foundInTxs || "";
+  const displayPartnerName = partnerName.trim() || storedPartner || "Parceiro(a)";
+
+  useEffect(() => {
+    if (storedPartner && !partnerName) {
+      setPartnerName(storedPartner);
+    }
+  }, [storedPartner]);
+
   useEffect(() => {
     if (user?.homeId) {
       getDoc(doc(db, "homes", user.homeId)).then((d) => {
@@ -188,7 +201,7 @@ export function CasaPage({ onOpenSettings }: CasaPageProps) {
         </p>
         <p className="text-[11px] text-muted-foreground mt-1 font-medium">
           {partnerOwesYou > 0
-            ? `Seu parceiro(a) deve ${money(partnerOwesYou, hidden)} a você das contas divididas.`
+            ? `${displayPartnerName} deve ${money(partnerOwesYou, hidden)} a você das contas divididas.`
             : "Todas as despesas compartilhadas estão equilibradas."}
         </p>
 
@@ -198,7 +211,7 @@ export function CasaPage({ onOpenSettings }: CasaPageProps) {
             <p className="text-sm font-bold text-foreground font-mono">{money(youPaidTotal, hidden)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">A Receber do Parceiro</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">A Receber de {displayPartnerName}</p>
             <p className="text-sm font-bold text-teal-500 font-mono">{money(partnerOwesYou, hidden)}</p>
           </div>
         </div>

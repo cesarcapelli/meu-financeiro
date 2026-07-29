@@ -30,7 +30,7 @@ export function AddTransactionSheet({
   const [installments, setInstallments] = useState(1);
   const [isSplit, setIsSplit] = useState(false);
   const [splitPercent, setSplitPercent] = useState(50);
-  const [splitWith, setSplitWith] = useState("Esposa");
+  const [splitWith, setSplitWith] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("finance-partner-name") || "Parceiro(a)" : "Parceiro(a)"));
 
   const reset = () => {
     setTipo("out");

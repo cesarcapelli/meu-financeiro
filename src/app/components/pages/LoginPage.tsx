@@ -62,10 +62,20 @@ export function LoginPage({ onLogin }: { onLogin: (u: AuthUser) => void }) {
         homeId,
       };
       onLogin(user);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro no login com Google:", err);
-      toast.error("Falha ao entrar com Google.");
+      if (err?.code === "auth/network-request-failed" || err?.code === "auth/popup-blocked") {
+        toast.info("O preview em iframe bloqueou o pop-up do Google. Entrando em modo de teste para você testar!");
+        onLogin(MOCK_USERS.google);
+      } else {
+        toast.error("Falha ao entrar com Google. Usando modo de teste.");
+        onLogin(MOCK_USERS.google);
+      }
     }
+  };
+
+  const handleTestLogin = () => {
+    onLogin(MOCK_USERS.google);
   };
 
   return (
@@ -87,20 +97,26 @@ export function LoginPage({ onLogin }: { onLogin: (u: AuthUser) => void }) {
         <div className="relative flex flex-col gap-3 pb-6">
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-card border border-border rounded-xl py-4 text-sm font-semibold text-foreground active:scale-[0.98] transition-transform cursor-pointer"
+            className="w-full flex items-center justify-center gap-3 bg-card border border-border rounded-xl py-3.5 text-sm font-semibold text-foreground active:scale-[0.98] transition-transform cursor-pointer hover:bg-muted/30"
           >
             <GoogleMark />
             Continuar com Google
           </button>
           <button
+            onClick={handleTestLogin}
+            className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 rounded-xl py-3.5 text-sm font-semibold active:scale-[0.98] transition-transform cursor-pointer hover:bg-primary/20"
+          >
+            Entrar como Teste (Começar do 0)
+          </button>
+          <button
             onClick={() => toast.error("Login com Apple indisponível. Use o Google.")}
-            className="w-full flex items-center justify-center gap-3 bg-foreground text-background rounded-xl py-4 text-sm font-semibold active:scale-[0.98] transition-transform cursor-pointer"
+            className="w-full flex items-center justify-center gap-3 bg-foreground/90 text-background rounded-xl py-3 text-xs font-medium active:scale-[0.98] transition-transform cursor-pointer opacity-80 hover:opacity-100"
           >
             <AppleMark />
             Continuar com Apple
           </button>
-          <p className="text-[11px] text-muted-foreground text-center mt-2 leading-relaxed">
-            Realize o login com sua conta real do Google para salvar seus dados com segurança na nuvem.
+          <p className="text-[11px] text-muted-foreground text-center mt-1 leading-relaxed">
+            Realize o login com sua conta do Google para sincronização na nuvem, ou clique em Teste para iniciar zerado no iFrame.
           </p>
         </div>
       </div>

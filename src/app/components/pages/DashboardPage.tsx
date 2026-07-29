@@ -25,7 +25,8 @@ import {
   Search,
   Trash2,
   Repeat,
-  Tag
+  Tag,
+  Coins
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useFinance } from "../../store/finance-context";
@@ -38,16 +39,288 @@ import type { Transaction } from "../../store/types";
 import { CATEGORIES, MONTHS } from "../../store/seed";
 import { iconFor } from "../shared/icons";
 
+function DueDatesAndSurplusSection({
+  state,
+  month,
+  hidden,
+}: {
+  state: any;
+  month: string;
+  hidden: boolean;
+  onOpenTx?: (t: Transaction) => void;
+}) {
+  const currentTxs = useMemo(
+    () => state.transactions.filter((t: Transaction) => t.month === month),
+    [state.transactions, month]
+  );
+
+  const expenses = useMemo(
+    () => currentTxs.filter((t: Transaction) => t.type === "out" || t.value < 0),
+    [currentTxs]
+  );
+
+  const incomes = useMemo(
+    () => currentTxs.filter((t: Transaction) => t.type === "in" || t.value > 0),
+    [currentTxs]
+  );
+
+  const getDayNum = (dateStr: string): number => {
+    if (!dateStr) return 1;
+    const match = dateStr.match(/\d+/);
+    if (match) {
+      const n = parseInt(match[0], 10);
+      if (n >= 1 && n <= 31) return n;
+    }
+    return 1;
+  };
+
+  // Identify income types: Pagamento / Salário vs Vale / Adiantamento / Benefícios Pix
+  const pagamentoTxs = incomes.filter(
+    (t: Transaction) =>
+      /pagamento|salário|salario|remuneração/i.test(t.desc) ||
+      t.cat === "Salário"
+  );
+
+  const valeTxs = incomes.filter(
+    (t: Transaction) => !pagamentoTxs.includes(t)
+  );
+
+  const totalPagamento = pagamentoTxs.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+  const pagamentoDay = pagamentoTxs.length > 0 ? Math.min(...pagamentoTxs.map((t: Transaction) => getDayNum(t.date))) : 5;
+
+  const totalVale = valeTxs.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+  const valeDay = valeTxs.length > 0 ? Math.min(...valeTxs.map((t: Transaction) => getDayNum(t.date))) : 20;
+
+  const totalIncomes = incomes.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+  const hasVale = totalVale > 0 || valeTxs.length > 0;
+  const cutoffDay = hasVale ? valeDay : 32;
+
+  // Expenses grouped by cutoff (Dia 15 and Dia 30)
+  const expensesDia15 = expenses.filter((t: Transaction) => getDayNum(t.date) <= 15);
+  const expensesDia30 = expenses.filter((t: Transaction) => getDayNum(t.date) > 15);
+
+  const totalGastosDia15 = expensesDia15.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+  const totalGastosDia30 = expensesDia30.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+
+  // Incomes assigned to Dia 15 (Pagamento/Salário) vs Dia 30 (Vale/Adiantamento/Pix)
+  const incomesDia15 = incomes.filter(
+    (t: Transaction) =>
+      /pagamento|salário|salario|remuneração/i.test(t.desc) ||
+      t.cat === "Salário" ||
+      getDayNum(t.date) <= 15
+  );
+
+  const incomesDia30 = incomes.filter((t: Transaction) => !incomesDia15.includes(t));
+
+  let totalReceitasDia15 = incomesDia15.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+  let totalReceitasDia30 = incomesDia30.reduce((s: number, t: Transaction) => s + Math.abs(t.value), 0);
+
+  if (totalReceitasDia15 === 0 && totalReceitasDia30 === 0) {
+    totalReceitasDia15 = totalIncomes;
+  }
+
+  const saldoDia15 = totalReceitasDia15 - totalGastosDia15;
+  const saldoDia30 = totalReceitasDia30 - totalGastosDia30;
+
+  const [expandedPeriod, setExpandedPeriod] = useState<"dia15" | "dia30" | null>(null);
+
+  return (
+    <SectionCard
+      title="Saldos Disponíveis"
+      action={
+        <p className="text-xs text-muted-foreground uppercase tracking-wide font-bold">
+          {month}
+        </p>
+      }
+      className="overflow-hidden w-full"
+    >
+      <div className="flex flex-col gap-2.5 w-full">
+        {/* Card 1: Vencimento & Gastos Dia 15 */}
+        <div className="flex flex-col w-full">
+          <div
+            onClick={() => setExpandedPeriod(expandedPeriod === "dia15" ? null : "dia15")}
+            className={`rounded-2xl border p-3 flex items-center justify-between gap-3 w-full cursor-pointer transition-all ${
+              expandedPeriod === "dia15"
+                ? "bg-emerald-500/10 border-emerald-500/40 shadow-sm"
+                : "bg-background/50 border-border/50 hover:bg-muted/20"
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 font-bold">
+                <Wallet size={16} strokeWidth={2.5} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold leading-tight text-foreground flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span>Gastos & Receitas (Dia 15)</span>
+                  <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold px-1.5 py-0.5 rounded-md shrink-0">
+                    1º Período
+                  </span>
+                </h4>
+                <p className="text-[11px] text-muted-foreground font-medium mt-0.5 flex flex-wrap items-center gap-x-1">
+                  <span>Receita: <span className="font-mono text-emerald-500 font-semibold">{money(totalReceitasDia15, hidden)}</span></span>
+                  <span className="text-muted-foreground/60">•</span>
+                  <span>Gastos: <span className="font-mono text-red-500 font-semibold">{money(totalGastosDia15, hidden)}</span></span>
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap">
+                Saldo Dia 15
+              </p>
+              <p className={`text-sm sm:text-base font-black font-mono whitespace-nowrap ${saldoDia15 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500"}`}>
+                {money(saldoDia15, hidden)}
+              </p>
+            </div>
+          </div>
+
+          {/* Expanded detail for Dia 15 */}
+          <AnimatePresence>
+            {expandedPeriod === "dia15" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="pl-3 sm:pl-4 pr-1 py-2 space-y-1.5 border-l-2 border-emerald-500/30 ml-4 my-1"
+              >
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                  Contas com vencimento até dia 15 ({expensesDia15.length})
+                </p>
+                {expensesDia15.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-1">Nenhum gasto registrado até o dia 15.</p>
+                ) : (
+                  expensesDia15.map((t: Transaction) => {
+                    const catMeta = CATEGORIES.find((c) => c.name === t.cat);
+                    const IconComp = iconFor(catMeta?.iconName);
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => onOpenTx?.(t)}
+                        className="flex items-center justify-between p-2 rounded-xl bg-muted/20 hover:bg-muted/40 border border-border/30 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 text-muted-foreground">
+                            <IconComp size={12} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-foreground break-words leading-tight">{t.desc}</p>
+                            <span className="text-[9px] text-muted-foreground font-semibold">{t.date} • {t.cat}</span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-red-500 shrink-0">
+                          -{money(Math.abs(t.value), hidden)}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Card 2: Vencimento & Gastos Dia 30 */}
+        <div className="flex flex-col w-full">
+          <div
+            onClick={() => setExpandedPeriod(expandedPeriod === "dia30" ? null : "dia30")}
+            className={`rounded-2xl border p-3 flex items-center justify-between gap-3 w-full cursor-pointer transition-all ${
+              expandedPeriod === "dia30"
+                ? "bg-violet-500/10 border-violet-500/40 shadow-sm"
+                : "bg-background/50 border-border/50 hover:bg-muted/20"
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 font-bold">
+                <Coins size={16} strokeWidth={2.5} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold leading-tight text-foreground flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span>Gastos & Receitas (Dia 30)</span>
+                  <span className="text-[9px] bg-violet-500/15 text-violet-400 font-extrabold px-1.5 py-0.5 rounded-md shrink-0">
+                    2º Período
+                  </span>
+                </h4>
+                <p className="text-[11px] text-muted-foreground font-medium mt-0.5 flex flex-wrap items-center gap-x-1">
+                  <span>Receita: <span className="font-mono text-violet-400 font-semibold">{money(totalReceitasDia30, hidden)}</span></span>
+                  <span className="text-muted-foreground/60">•</span>
+                  <span>Gastos: <span className="font-mono text-red-500 font-semibold">{money(totalGastosDia30, hidden)}</span></span>
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap">
+                Saldo Dia 30
+              </p>
+              <p className={`text-sm sm:text-base font-black font-mono whitespace-nowrap ${saldoDia30 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500"}`}>
+                {money(saldoDia30, hidden)}
+              </p>
+            </div>
+          </div>
+
+          {/* Expanded detail for Dia 30 */}
+          <AnimatePresence>
+            {expandedPeriod === "dia30" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="pl-3 sm:pl-4 pr-1 py-2 space-y-1.5 border-l-2 border-violet-500/30 ml-4 my-1"
+              >
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                  Contas com vencimento do dia 16 ao 30 ({expensesDia30.length})
+                </p>
+                {expensesDia30.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-1">Nenhum gasto registrado após o dia 15.</p>
+                ) : (
+                  expensesDia30.map((t: Transaction) => {
+                    const catMeta = CATEGORIES.find((c) => c.name === t.cat);
+                    const IconComp = iconFor(catMeta?.iconName);
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => onOpenTx?.(t)}
+                        className="flex items-center justify-between p-2 rounded-xl bg-muted/20 hover:bg-muted/40 border border-border/30 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 text-muted-foreground">
+                            <IconComp size={12} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-foreground break-words leading-tight">{t.desc}</p>
+                            <span className="text-[9px] text-muted-foreground font-semibold">{t.date} • {t.cat}</span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-red-500 shrink-0">
+                          -{money(Math.abs(t.value), hidden)}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 export function DashboardPage({
   onOpenTx,
   onAdd,
   goTo,
   onStartOnboarding,
+  onOpenAiInput,
 }: {
   onOpenTx: (t: Transaction) => void;
   onAdd: () => void;
   goTo: (p: any) => void;
   onStartOnboarding?: () => void;
+  onOpenAiInput?: () => void;
 }) {
   const { state, dispatch } = useFinance();
   const [activeSegment, setActiveSegment] = useState<number | null>(null);
@@ -306,11 +579,11 @@ export function DashboardPage({
             </PieChart>
 
             {/* Center Summary Labels */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-1.5">
-              <span className="text-[9px] text-muted-foreground uppercase font-black tracking-wider truncate max-w-[100px]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-1.5 px-3">
+              <span className="text-[9px] text-muted-foreground uppercase font-black tracking-wider line-clamp-1">
                 {hoveredItem ? hoveredItem.name : "Total Gastos"}
               </span>
-              <span className="text-xs sm:text-sm font-black font-mono text-foreground leading-tight truncate max-w-[110px]">
+              <span className="text-xs sm:text-sm font-black font-mono text-foreground leading-tight whitespace-nowrap">
                 {money(
                   hoveredItem
                     ? hoveredItem.value
@@ -319,7 +592,7 @@ export function DashboardPage({
                 )}
               </span>
               {totalIncome > 0 ? (
-                <span className="text-[9px] font-bold text-teal-500 truncate max-w-[105px]">
+                <span className="text-[9px] font-bold text-teal-500 line-clamp-1">
                   {hoveredItem
                     ? `${((hoveredItem.value / totalIncome) * 100).toFixed(1)}% da receita`
                     : `${Math.round((totalTypeExpenses / totalIncome) * 100)}% da receita`}
@@ -432,6 +705,14 @@ export function DashboardPage({
           </div>
         </div>
       </SectionCard>
+
+      {/* Contas por Dia de Vencimento e Sobra do Vale/Pagamento */}
+      <DueDatesAndSurplusSection
+        state={state}
+        month={month}
+        hidden={hidden}
+        onOpenTx={onOpenTx}
+      />
 
       {/* Gastos Fixos Card */}
       <SectionCard title="Gastos Fixos" action={<p className="text-xs text-muted-foreground uppercase tracking-wide font-bold">{month}</p>}>

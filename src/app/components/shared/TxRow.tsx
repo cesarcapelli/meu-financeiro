@@ -43,7 +43,7 @@ export function TxRow({
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{t.desc}</p>
+        <p className="text-sm font-semibold text-foreground break-words leading-tight">{t.desc}</p>
         <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
           <span>{subtitle ?? `${t.cat} · ${t.date}`}</span>
           {t.card && t.card !== "Pix" && (

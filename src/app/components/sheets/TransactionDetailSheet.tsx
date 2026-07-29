@@ -27,7 +27,7 @@ export function TransactionDetailSheet({
 
   const [isSplit, setIsSplit] = useState(false);
   const [splitPercent, setSplitPercent] = useState(50);
-  const [splitWith, setSplitWith] = useState("Esposa");
+  const [splitWith, setSplitWith] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("finance-partner-name") || "Parceiro(a)" : "Parceiro(a)"));
 
   useEffect(() => {
     if (tx) {
@@ -38,7 +38,7 @@ export function TransactionDetailSheet({
       setCard(tx.card || "Pix");
       setIsSplit(tx.isSplit || false);
       setSplitPercent(tx.splitPercent || 50);
-      setSplitWith(tx.splitWith || "Esposa");
+      setSplitWith(tx.splitWith || (typeof window !== "undefined" ? localStorage.getItem("finance-partner-name") || "Parceiro(a)" : "Parceiro(a)"));
     }
   }, [tx, editing]);
 

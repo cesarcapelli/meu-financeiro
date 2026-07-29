@@ -93,6 +93,7 @@ function reducer(state: FinanceState, action: FinanceAction): FinanceState {
         faturas: [],
         cards: state.cards.map((c) => ({ ...c, current: 0 })),
         goals: state.goals.map((g) => ({ ...g, atual: 0 })),
+        budgets: state.budgets.map((b) => ({ ...b, limite: 0 })),
       };
     case "ADD_BILL":
       return { ...state, faturas: [action.bill, ...(state.faturas || [])] };
@@ -144,9 +145,18 @@ export function FinanceProvider({ children, user }: { children: ReactNode; user?
           dispatch({ type: "HYDRATE_STATE", state: cloudState });
           toast.success("Dados sincronizados com a nuvem!");
         } else {
-          // Document doesn't exist yet, save the current state to firestore to seed it
-          await setDoc(userDocRef, state);
-          toast.success("Sua conta foi conectada e os dados salvos na nuvem!");
+          // Document doesn't exist yet, save a clean zeroed state to firestore to start from 0
+          const cleanState: FinanceState = {
+            ...state,
+            transactions: [],
+            faturas: [],
+            cards: state.cards.map((c) => ({ ...c, current: 0 })),
+            goals: state.goals.map((g) => ({ ...g, atual: 0 })),
+            budgets: state.budgets.map((b) => ({ ...b, limite: 0 })),
+          };
+          dispatch({ type: "HYDRATE_STATE", state: cleanState });
+          await setDoc(userDocRef, cleanState);
+          toast.success("Sua conta foi conectada! Painel pronto para começar do 0.");
         }
         setIsSynced(true);
       } catch (err) {

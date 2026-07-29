@@ -10,10 +10,7 @@ export function getMonthSummary(state: FinanceState, month: string) {
   const receitas = tx.filter((t) => t.type === "in").reduce((s, t) => s + t.value, 0);
   const despesas = tx.filter((t) => t.type === "out").reduce((s, t) => s + Math.abs(t.value), 0);
   
-  // Saldo considers only 'Pix' (cash) outflows. Credit card outflows don't leave checking account yet.
-  const despesas_pix = tx.filter((t) => t.type === "out" && t.card === "Pix").reduce((s, t) => s + Math.abs(t.value), 0);
-  
-  return { receitas, despesas, saldo: receitas - despesas_pix };
+  return { receitas, despesas, saldo: receitas - despesas };
 }
 
 // Two-category split (Fixos vs Variáveis) of expenses for the given month.
