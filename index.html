@@ -4,15 +4,28 @@
     <head>
       
       <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Personal Finance Management App</title>
-      <meta name="description" content="Manage personal finances effortlessly with this user-friendly app, designed to help individuals track expenses, set budgets, and achieve financial goals." />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      <meta name="apple-mobile-web-app-title" content="MyFin" />
+      <meta name="mobile-web-app-capable" content="yes" />
+      <meta name="format-detection" content="telephone=no" />
+      <title>MyFin - Gestão Financeira</title>
+      <meta name="description" content="Gerenciador financeiro pessoal e compartilhado" />
       <meta name="robots" content="noindex, nofollow" />
       <link rel="manifest" href="/manifest.json" />
-      <meta name="theme-color" content="#2563EB" />
+      <meta name="theme-color" content="#09090b" />
       <link rel="icon" type="image/svg+xml" href="/icon.svg" />
       <link rel="apple-touch-icon" href="/icon.svg" />
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <style>
+        html, body { height: 100%; margin: 0; }
+        #root { height: 100%; }
+        @media screen and (max-width: 768px) {
+          input, select, textarea {
+            font-size: 16px !important;
+          }
+        }
+      </style>
       
     </head>
 

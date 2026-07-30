@@ -217,17 +217,29 @@ export function HomeSettingsSheet({ open, onClose, homeId }: HomeSettingsSheetPr
             
             {homeId && (
               <div className="flex flex-col gap-2 mb-2 p-4 border border-border rounded-xl bg-muted/30">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Código de Convite</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Convite para Compartilhar Gastos</label>
                 <div className="flex items-center justify-between bg-input-background border border-border rounded-lg px-4 py-3">
                   <span className="text-sm font-mono text-foreground font-semibold truncate select-all">{homeId}</span>
-                  <button 
-                    onClick={() => { navigator.clipboard.writeText(homeId); toast.success("Código copiado!"); }}
-                    className="text-primary text-xs font-bold uppercase tracking-wider bg-primary/10 px-3 py-1.5 rounded-md hover:bg-primary/20 transition-colors"
-                  >
-                    Copiar
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => { navigator.clipboard.writeText(homeId); toast.success("Código copiado!"); }}
+                      className="text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-wider bg-muted/60 px-2.5 py-1.5 rounded-md transition-colors"
+                    >
+                      Código
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const link = `${window.location.origin}${window.location.pathname}?casa=${homeId}`;
+                        navigator.clipboard.writeText(link);
+                        toast.success("Link de convite copiado!");
+                      }}
+                      className="text-primary text-xs font-bold uppercase tracking-wider bg-primary/10 px-3 py-1.5 rounded-md hover:bg-primary/20 transition-colors"
+                    >
+                      Copiar Link
+                    </button>
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Envie este código para quem deseja convidar para a casa.</p>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Envie este link para outra pessoa entrar diretamente e preencher as despesas compartilhadas da casa.</p>
               </div>
             )}
             

@@ -1,23 +1,22 @@
-import { PiggyBank } from "lucide-react";
-import { auth, googleProvider, db } from "../../store/firebase";
-import { signInWithPopup } from "firebase/auth";
+import { useState } from "react";
+import { PiggyBank, Mail, User, ArrowRight, ShieldCheck } from "lucide-react";
+import { auth, googleProvider, db, isFirebaseConfigured } from "../../store/firebase";
+import { signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { toast } from "sonner";
 
 export interface AuthUser {
-  uid: string; id?: string;
+  uid: string;
+  id?: string;
   name: string;
   email: string;
   initials: string;
   photoURL?: string;
-  provider: "google" | "apple";
+  provider: "google" | "email";
   homeId?: string;
+  isFirstLogin?: boolean;
+  hasCompletedOnboarding?: boolean;
 }
-
-const MOCK_USERS: Record<AuthUser["provider"], AuthUser> = {
-  google: { uid: "demo-google-uid", name: "Ana Martins", email: "ana.martins@gmail.com", initials: "AM", provider: "google" },
-  apple: { uid: "demo-apple-uid", name: "Ana Martins", email: "ana.martins@icloud.com", initials: "AM", provider: "apple" },
-};
 
 function GoogleMark() {
   return (
@@ -30,96 +29,209 @@ function GoogleMark() {
   );
 }
 
-function AppleMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.365 12.86c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.87 2.31 1.15-.05 1.59-.74 2.98-.74 1.39 0 1.78.74 3 .72 1.24-.02 2.02-1.13 2.78-2.25.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.44-3.68zM14.09 5.6c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.78-.97 2.83 1.03.08 2.07-.52 2.71-1.29z" />
-    </svg>
-  );
-}
-
 export function LoginPage({ onLogin }: { onLogin: (u: AuthUser) => void }) {
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const fUser = result.user;
-      const initials = (fUser.displayName || "G")
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailName, setEmailName] = useState("");
+  const [emailAddr, setEmailAddr] = useState("");
+  const [loading, setLoading] = useState(false);
 
-      const userDoc = await getDoc(doc(db, "users", fUser.uid));
-      const homeId = userDoc.exists() ? userDoc.data().homeId : undefined;
-      const user: AuthUser = {
-        uid: fUser.uid,
-        name: fUser.displayName || "Usuário Google",
-        email: fUser.email || "",
-        initials,
-        provider: "google",
-        photoURL: fUser.photoURL || undefined,
-        homeId,
-      };
-      onLogin(user);
-    } catch (err: any) {
-      console.error("Erro no login com Google:", err);
-      if (err?.code === "auth/network-request-failed" || err?.code === "auth/popup-blocked") {
-        toast.info("O preview em iframe bloqueou o pop-up do Google. Entrando em modo de teste para você testar!");
-        onLogin(MOCK_USERS.google);
-      } else {
-        toast.error("Falha ao entrar com Google. Usando modo de teste.");
-        onLogin(MOCK_USERS.google);
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    if (isFirebaseConfigured) {
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const fUser = result.user;
+        const name = fUser.displayName || "Usuário Google";
+        const email = fUser.email || "";
+        const initials = name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+
+        let homeId: string | undefined;
+        let isFirstLogin = true;
+        let hasCompletedOnboarding = false;
+
+        try {
+          const userDoc = await getDoc(doc(db, "users", fUser.uid));
+          if (userDoc.exists()) {
+            const uData = userDoc.data();
+            homeId = uData?.homeId;
+            hasCompletedOnboarding = uData?.hasCompletedOnboarding === true || uData?.isFirstLogin === false;
+            isFirstLogin = uData ? (uData.isFirstLogin ?? !hasCompletedOnboarding) : true;
+          }
+        } catch {
+          /* ignore cloud read error */
+        }
+
+        const user: AuthUser = {
+          uid: fUser.uid,
+          name,
+          email,
+          initials,
+          provider: "google",
+          photoURL: fUser.photoURL || undefined,
+          homeId,
+          isFirstLogin,
+          hasCompletedOnboarding,
+        };
+        onLogin(user);
+        setLoading(false);
+        return;
+      } catch (err: any) {
+        console.warn("Google login popup blocked or failed, attempting redirect:", err);
+        if (
+          err?.code === "auth/popup-blocked" ||
+          err?.code === "auth/popup-closed-by-user" ||
+          err?.code === "auth/cancelled-popup-request"
+        ) {
+          try {
+            await signInWithRedirect(auth, googleProvider);
+            return;
+          } catch (redirectErr) {
+            console.error("Redirect login error:", redirectErr);
+          }
+        }
       }
     }
+
+    // If Firebase is not configured or popup blocked, open form so user can enter their real name and email
+    setLoading(false);
+    setShowEmailForm(true);
+    toast.info("Informe seu Nome e E-mail para acessar sua conta.");
   };
 
-  const handleTestLogin = () => {
-    onLogin(MOCK_USERS.google);
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = emailName.trim();
+    const cleanEmail = emailAddr.trim().toLowerCase();
+
+    if (!cleanName || !cleanEmail) {
+      toast.error("Por favor, preencha seu nome e e-mail.");
+      return;
+    }
+
+    const initials = cleanName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
+    // Create unique deterministic UID based on email address
+    const safeUid = `usr_${cleanEmail.replace(/[^a-z0-9]/g, "_")}`;
+
+    // Check if user has previously completed onboarding locally
+    const storedCompleted = typeof window !== "undefined" && localStorage.getItem(`has-completed-onboarding-${safeUid}`) === "true";
+
+    const user: AuthUser = {
+      uid: safeUid,
+      name: cleanName,
+      email: cleanEmail,
+      initials,
+      provider: "email",
+      isFirstLogin: !storedCompleted,
+      hasCompletedOnboarding: storedCompleted,
+    };
+
+    onLogin(user);
   };
 
   return (
-    <div className="size-full flex items-center justify-center bg-background">
-      <div className="relative w-full max-w-[390px] h-full max-h-[844px] bg-background text-foreground flex flex-col overflow-hidden rounded-[40px] shadow-2xl px-8">
-        <div className="absolute -right-16 top-10 w-52 h-52 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -left-16 bottom-24 w-44 h-44 rounded-full bg-primary/10 blur-3xl" />
+    <div className="size-full flex items-center justify-center bg-background overflow-hidden">
+      <div className="relative w-full h-full sm:max-w-[390px] sm:max-h-[844px] bg-background text-foreground flex flex-col overflow-y-auto sm:rounded-[40px] shadow-2xl px-7 pt-[calc(max(24px,env(safe-area-inset-top)))] pb-[calc(max(24px,env(safe-area-inset-bottom)))]">
+        <div className="absolute -right-16 top-10 w-52 h-52 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 bottom-24 w-44 h-44 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
 
-        <div className="flex-1 flex flex-col items-center justify-center relative">
-          <div className="w-16 h-16 rounded-3xl bg-primary flex items-center justify-center mb-6 shadow-lg shadow-primary/25">
-            <PiggyBank size={30} className="text-primary-foreground" />
+        <div className="flex-1 flex flex-col items-center justify-center relative py-6">
+          <div className="w-16 h-16 rounded-3xl bg-primary flex items-center justify-center mb-5 shadow-lg shadow-primary/25">
+            <PiggyBank size={32} className="text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight text-center">Suas finanças, no controle.</h1>
-          <p className="text-sm text-muted-foreground text-center mt-2 max-w-[240px]">
-            Entre para acompanhar saldo, cartões, orçamentos e metas em um só lugar.
+          <p className="text-xs text-muted-foreground text-center mt-2 max-w-[260px] leading-relaxed">
+            Acompanhe saldos, cartões, despesas da Casa e metas financeiras com total privacidade e isolamento.
           </p>
         </div>
 
-        <div className="relative flex flex-col gap-3 pb-6">
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-card border border-border rounded-xl py-3.5 text-sm font-semibold text-foreground active:scale-[0.98] transition-transform cursor-pointer hover:bg-muted/30"
-          >
-            <GoogleMark />
-            Continuar com Google
-          </button>
-          <button
-            onClick={handleTestLogin}
-            className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 rounded-xl py-3.5 text-sm font-semibold active:scale-[0.98] transition-transform cursor-pointer hover:bg-primary/20"
-          >
-            Entrar como Teste (Começar do 0)
-          </button>
-          <button
-            onClick={() => toast.error("Login com Apple indisponível. Use o Google.")}
-            className="w-full flex items-center justify-center gap-3 bg-foreground/90 text-background rounded-xl py-3 text-xs font-medium active:scale-[0.98] transition-transform cursor-pointer opacity-80 hover:opacity-100"
-          >
-            <AppleMark />
-            Continuar com Apple
-          </button>
-          <p className="text-[11px] text-muted-foreground text-center mt-1 leading-relaxed">
-            Realize o login com sua conta do Google para sincronização na nuvem, ou clique em Teste para iniciar zerado no iFrame.
-          </p>
+        <div className="relative flex flex-col gap-3.5 pb-4">
+          {!showEmailForm ? (
+            <>
+              <button
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 bg-card border border-border rounded-xl py-3.5 text-sm font-semibold text-foreground active:scale-[0.98] transition-transform cursor-pointer hover:bg-muted/30 shadow-sm"
+              >
+                <GoogleMark />
+                {loading ? "Entrando..." : "Continuar com Google"}
+              </button>
+
+              <button
+                onClick={() => setShowEmailForm(true)}
+                className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 rounded-xl py-3.5 text-sm font-semibold active:scale-[0.98] transition-transform cursor-pointer hover:bg-primary/15"
+              >
+                <Mail size={16} />
+                Entrar com Nome e E-mail
+              </button>
+            </>
+          ) : (
+            <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3 bg-card/60 border border-border/80 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <User size={14} className="text-primary" />
+                  Criar ou Acessar Conta
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowEmailForm(false)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+                >
+                  Voltar
+                </button>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 block">Seu Nome</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Mariana Silva"
+                  value={emailName}
+                  onChange={(e) => setEmailName(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 block">Seu E-mail</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="mariana@exemplo.com"
+                  value={emailAddr}
+                  onChange={(e) => setEmailAddr(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold rounded-xl py-3 text-xs mt-1 active:scale-[0.98] transition-transform cursor-pointer shadow-md shadow-primary/20"
+              >
+                <span>Acessar Meu Painel</span>
+                <ArrowRight size={14} />
+              </button>
+            </form>
+          )}
+
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground text-center mt-1">
+            <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
+            <span>Dados isolados e protegidos por conta de usuário</span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

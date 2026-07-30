@@ -39,6 +39,41 @@ import type { Transaction } from "../../store/types";
 import { CATEGORIES, MONTHS } from "../../store/seed";
 import { iconFor } from "../shared/icons";
 
+function AnimatedMoneyValue({ value, hidden }: { value: number; hidden: boolean }) {
+  const [displayValue, setDisplayValue] = useState(value);
+
+  React.useEffect(() => {
+    if (hidden) return;
+    let startTimestamp: number | null = null;
+    const duration = 350;
+    const startVal = displayValue;
+    const endVal = value;
+
+    if (startVal === endVal) return;
+
+    let animationFrameId: number;
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const current = startVal + (endVal - startVal) * ease;
+      setDisplayValue(current);
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(step);
+      }
+    };
+    animationFrameId = requestAnimationFrame(step);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [value, hidden]);
+
+  if (hidden) {
+    return <span>••••••</span>;
+  }
+
+  return <span>{money(displayValue, false)}</span>;
+}
+
 function DueDatesAndSurplusSection({
   state,
   month,
@@ -126,7 +161,7 @@ function DueDatesAndSurplusSection({
 
   return (
     <SectionCard
-      title="Saldos Disponíveis"
+      title="Fluxo por Dia"
       action={
         <p className="text-xs text-muted-foreground uppercase tracking-wide font-bold">
           {month}
@@ -139,40 +174,60 @@ function DueDatesAndSurplusSection({
         <div className="flex flex-col w-full">
           <div
             onClick={() => setExpandedPeriod(expandedPeriod === "dia15" ? null : "dia15")}
-            className={`rounded-2xl border p-3 flex items-center justify-between gap-3 w-full cursor-pointer transition-all ${
+            className={`rounded-2xl border p-3 flex flex-col gap-2.5 w-full cursor-pointer transition-all ${
               expandedPeriod === "dia15"
                 ? "bg-emerald-500/10 border-emerald-500/40 shadow-sm"
                 : "bg-background/50 border-border/50 hover:bg-muted/20"
             }`}
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 font-bold">
-                <Wallet size={16} strokeWidth={2.5} />
+            {/* Header row */}
+            <div className="flex items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 font-bold">
+                  <Wallet size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-bold leading-tight text-foreground flex items-center gap-2">
+                    <span>Período Dia 15</span>
+                    <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold px-1.5 py-0.5 rounded-md shrink-0">
+                      1º ao 15º dia
+                    </span>
+                  </h4>
+                </div>
               </div>
-
-              <div className="min-w-0 flex-1">
-                <h4 className="text-xs font-bold leading-tight text-foreground flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <span>Gastos & Receitas (Dia 15)</span>
-                  <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold px-1.5 py-0.5 rounded-md shrink-0">
-                    1º Período
-                  </span>
-                </h4>
-                <p className="text-[11px] text-muted-foreground font-medium mt-0.5 flex flex-wrap items-center gap-x-1">
-                  <span>Receita: <span className="font-mono text-emerald-500 font-semibold">{money(totalReceitasDia15, hidden)}</span></span>
-                  <span className="text-muted-foreground/60">•</span>
-                  <span>Gastos: <span className="font-mono text-red-500 font-semibold">{money(totalGastosDia15, hidden)}</span></span>
-                </p>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground shrink-0">
+                <span>{expensesDia15.length} {expensesDia15.length === 1 ? "conta" : "contas"}</span>
+                <ChevronDown size={14} className={`transition-transform duration-200 ${expandedPeriod === "dia15" ? "rotate-180 text-emerald-500" : ""}`} />
               </div>
             </div>
 
-            <div className="text-right shrink-0">
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap">
-                Saldo Dia 15
-              </p>
-              <p className={`text-sm sm:text-base font-black font-mono whitespace-nowrap ${saldoDia15 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500"}`}>
-                {money(saldoDia15, hidden)}
-              </p>
-            </div>
+            {/* Structured List: Receita, Gastos, Saldo */}
+            <motion.div
+              key={month}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30 text-xs w-full"
+            >
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Receita</span>
+                <span className="font-mono font-bold text-emerald-500 text-xs sm:text-sm">
+                  <AnimatedMoneyValue value={totalReceitasDia15} hidden={hidden} />
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Gastos</span>
+                <span className="font-mono font-bold text-red-500 text-xs sm:text-sm">
+                  <AnimatedMoneyValue value={totalGastosDia15} hidden={hidden} />
+                </span>
+              </div>
+              <div className="flex flex-col text-right">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Saldo</span>
+                <span className={`font-mono font-black text-xs sm:text-sm ${saldoDia15 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500"}`}>
+                  <AnimatedMoneyValue value={saldoDia15} hidden={hidden} />
+                </span>
+              </div>
+            </motion.div>
           </div>
 
           {/* Expanded detail for Dia 15 */}
@@ -224,40 +279,60 @@ function DueDatesAndSurplusSection({
         <div className="flex flex-col w-full">
           <div
             onClick={() => setExpandedPeriod(expandedPeriod === "dia30" ? null : "dia30")}
-            className={`rounded-2xl border p-3 flex items-center justify-between gap-3 w-full cursor-pointer transition-all ${
+            className={`rounded-2xl border p-3 flex flex-col gap-2.5 w-full cursor-pointer transition-all ${
               expandedPeriod === "dia30"
                 ? "bg-violet-500/10 border-violet-500/40 shadow-sm"
                 : "bg-background/50 border-border/50 hover:bg-muted/20"
             }`}
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 font-bold">
-                <Coins size={16} strokeWidth={2.5} />
+            {/* Header row */}
+            <div className="flex items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 font-bold">
+                  <Coins size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-bold leading-tight text-foreground flex items-center gap-2">
+                    <span>Período Dia 30</span>
+                    <span className="text-[9px] bg-violet-500/15 text-violet-400 font-extrabold px-1.5 py-0.5 rounded-md shrink-0">
+                      16º ao 30º dia
+                    </span>
+                  </h4>
+                </div>
               </div>
-
-              <div className="min-w-0 flex-1">
-                <h4 className="text-xs font-bold leading-tight text-foreground flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <span>Gastos & Receitas (Dia 30)</span>
-                  <span className="text-[9px] bg-violet-500/15 text-violet-400 font-extrabold px-1.5 py-0.5 rounded-md shrink-0">
-                    2º Período
-                  </span>
-                </h4>
-                <p className="text-[11px] text-muted-foreground font-medium mt-0.5 flex flex-wrap items-center gap-x-1">
-                  <span>Receita: <span className="font-mono text-violet-400 font-semibold">{money(totalReceitasDia30, hidden)}</span></span>
-                  <span className="text-muted-foreground/60">•</span>
-                  <span>Gastos: <span className="font-mono text-red-500 font-semibold">{money(totalGastosDia30, hidden)}</span></span>
-                </p>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground shrink-0">
+                <span>{expensesDia30.length} {expensesDia30.length === 1 ? "conta" : "contas"}</span>
+                <ChevronDown size={14} className={`transition-transform duration-200 ${expandedPeriod === "dia30" ? "rotate-180 text-violet-400" : ""}`} />
               </div>
             </div>
 
-            <div className="text-right shrink-0">
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap">
-                Saldo Dia 30
-              </p>
-              <p className={`text-sm sm:text-base font-black font-mono whitespace-nowrap ${saldoDia30 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500"}`}>
-                {money(saldoDia30, hidden)}
-              </p>
-            </div>
+            {/* Structured List: Receita, Gastos, Saldo */}
+            <motion.div
+              key={month}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30 text-xs w-full"
+            >
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Receita</span>
+                <span className="font-mono font-bold text-violet-400 text-xs sm:text-sm">
+                  <AnimatedMoneyValue value={totalReceitasDia30} hidden={hidden} />
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Gastos</span>
+                <span className="font-mono font-bold text-red-500 text-xs sm:text-sm">
+                  <AnimatedMoneyValue value={totalGastosDia30} hidden={hidden} />
+                </span>
+              </div>
+              <div className="flex flex-col text-right">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Saldo</span>
+                <span className={`font-mono font-black text-xs sm:text-sm ${saldoDia30 >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500"}`}>
+                  <AnimatedMoneyValue value={saldoDia30} hidden={hidden} />
+                </span>
+              </div>
+            </motion.div>
           </div>
 
           {/* Expanded detail for Dia 30 */}

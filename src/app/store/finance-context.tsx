@@ -2,20 +2,21 @@ import { createContext, useContext, useReducer, useEffect, useState, type ReactN
 import type { FinanceState, FinanceAction } from "./types";
 import { initialState } from "./seed";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, isFirebaseConfigured } from "./firebase";
 import { toast } from "sonner";
 import type { AuthUser } from "../components/pages/LoginPage";
 
-const STORAGE_KEY = "finance-app-state-v1";
+function getStorageKey(uid?: string) {
+  return uid ? `finance-app-state-${uid}` : "finance-app-state-v1";
+}
 
-// Hydrate from localStorage, falling back to the seed data.
-function loadState(): FinanceState {
+// Hydrate from localStorage, falling back to clean seed data.
+function loadState(uid?: string): FinanceState {
   if (typeof window === "undefined") return { faturas: [], ...initialState };
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(getStorageKey(uid));
     if (!raw) return { faturas: [], ...initialState };
     const parsed = JSON.parse(raw);
-    // Shallow-merge so newly added fields keep their defaults.
     return { faturas: [], ...initialState, ...parsed };
   } catch {
     return { faturas: [], ...initialState };
@@ -91,9 +92,10 @@ function reducer(state: FinanceState, action: FinanceAction): FinanceState {
         ...state,
         transactions: [],
         faturas: [],
-        cards: state.cards.map((c) => ({ ...c, current: 0 })),
-        goals: state.goals.map((g) => ({ ...g, atual: 0 })),
-        budgets: state.budgets.map((b) => ({ ...b, limite: 0 })),
+        cards: [],
+        goals: [],
+        budgets: [],
+        rules: [],
       };
     case "ADD_BILL":
       return { ...state, faturas: [action.bill, ...(state.faturas || [])] };
@@ -126,42 +128,47 @@ interface FinanceContextValue {
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
 export function FinanceProvider({ children, user }: { children: ReactNode; user?: AuthUser | null }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const [state, dispatch] = useReducer(reducer, user?.uid, loadState);
   const [isSynced, setIsSynced] = useState(false);
 
   // Load from firestore if user is authenticated
   useEffect(() => {
-    if (!user) {
+    if (!user?.uid) {
       setIsSynced(false);
+      return;
+    }
+
+    if (!isFirebaseConfigured) {
+      setIsSynced(true);
       return;
     }
 
     const loadFromFirestore = async () => {
       try {
-        const userDocRef = doc(db, "users", (user as any).uid || (user as any).id);
+        const userDocRef = doc(db, "users", user.uid);
         const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
           const cloudState = docSnap.data() as FinanceState;
           dispatch({ type: "HYDRATE_STATE", state: cloudState });
-          toast.success("Dados sincronizados com a nuvem!");
         } else {
-          // Document doesn't exist yet, save a clean zeroed state to firestore to start from 0
+          // Document doesn't exist yet, start from 100% clean zeroed state
           const cleanState: FinanceState = {
-            ...state,
+            hideBalances: false,
+            currentMonth: "Jul",
             transactions: [],
             faturas: [],
-            cards: state.cards.map((c) => ({ ...c, current: 0 })),
-            goals: state.goals.map((g) => ({ ...g, atual: 0 })),
-            budgets: state.budgets.map((b) => ({ ...b, limite: 0 })),
+            cards: [],
+            goals: [],
+            budgets: [],
+            rules: [],
           };
           dispatch({ type: "HYDRATE_STATE", state: cleanState });
-          await setDoc(userDocRef, cleanState);
-          toast.success("Sua conta foi conectada! Painel pronto para começar do 0.");
+          await setDoc(userDocRef, cleanState, { merge: true }).catch(() => {});
         }
         setIsSynced(true);
-      } catch (err) {
-        console.error("Erro ao sincronizar com Firebase:", err);
-        toast.error("Erro ao carregar dados da nuvem.");
+      } catch (err: any) {
+        console.warn("Sincronização Firebase offline ou limitada:", err?.message || err);
+        setIsSynced(true);
       }
     };
 
@@ -171,21 +178,24 @@ export function FinanceProvider({ children, user }: { children: ReactNode; user?
   // Persist change to local storage and optionally Firestore
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const key = getStorageKey(user?.uid);
+      window.localStorage.setItem(key, JSON.stringify(state));
     } catch {
       /* storage full or unavailable — ignore */
     }
 
-    if (user && isSynced) {
-      const saveToFirestore = async () => {
+    if (user?.uid && isSynced && isFirebaseConfigured) {
+      const timer = setTimeout(async () => {
         try {
-          const userDocRef = doc(db, "users", (user as any).uid || (user as any).id);
-          await setDoc(userDocRef, state);
-        } catch (err) {
-          console.error("Erro ao salvar no Firestore:", err);
+          const userDocRef = doc(db, "users", user.uid);
+          await setDoc(userDocRef, state, { merge: true });
+        } catch (err: any) {
+          if (err?.code !== "resource-exhausted") {
+            console.warn("Erro ao salvar no Firestore:", err?.message || err);
+          }
         }
-      };
-      saveToFirestore();
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [state, user?.uid, isSynced]);
 

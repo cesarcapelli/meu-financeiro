@@ -1,7 +1,17 @@
-/* Hide scrollbars app-wide while keeping scroll behavior. */
+/* Global CSS for PWA / Native Mobile iOS Safari & Chrome Optimization */
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* Hide scrollbars app-wide while keeping scroll behavior and remove gray tap highlight on iOS */
 * {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
+  -webkit-tap-highlight-color: transparent;
 }
 
 *::-webkit-scrollbar {
@@ -10,7 +20,93 @@
   height: 0;
 }
 
-/* Utility used across components for explicit opt-in (kept for clarity). */
+/* 1. RESET DE VIEWPORT E ALTURA REAL (iOS dynamic resize & bounce fix) */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevents full page elastic bounce / bouncing effect on iOS */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--background, #09090b);
+  
+  /* 2. PREVENÇÃO DE QUEBRAS DE TEXTO E ZOOM AUTOMÁTICO */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  
+  /* 3. ESTABILIZAÇÃO DE RENDERIZAÇÃO (Hardware Acceleration / Anti-flicker) */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+/* Inner scrollable containers: controlled smooth momentum scroll for iOS */
+.overflow-y-auto,
+.overflow-auto,
+.scrollable-content {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* 2. PREVENÇÃO DE ZOOM AUTOMÁTICO NOS INPUTS NO IOS (Safari zoom on focus fix) */
+@media screen and (max-width: 768px) {
+  input,
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="tel"],
+  input[type="url"],
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevents iOS Safari automatic page zoom */
+  }
+}
+
+/* 4. PREVENÇÃO DE TOQUES E SELEÇÕES ACIDENTAIS */
+button,
+a,
+[role="button"],
+.btn,
+.chip,
+.pill,
+nav,
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+/* 5. SAFE AREA INSETS (Dynamic Island and Home Bar padding support) */
+.safe-area-pt {
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+.safe-area-pb {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Utility used across components for explicit opt-in */
 .scrollbar-hide {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -19,3 +115,5 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+

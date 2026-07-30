@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 import {
@@ -21,11 +21,14 @@ import {
   ChevronRight,
   HelpCircle,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 
 import { FinanceProvider, useFinance } from "./store/finance-context";
 import { signOut } from "firebase/auth";
-import { auth, db } from "./store/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db, isFirebaseConfigured } from "./store/firebase";
+import { StackedAvatars, type ProfileType } from "./components/shared/StackedAvatars";
 import { lazy, Suspense } from "react";
 const DashboardPage = lazy(() => import("./components/pages/DashboardPage").then(module => ({ default: module.DashboardPage })));
 const CarteiraPage = lazy(() => import("./components/pages/CarteiraPage").then(module => ({ default: module.CarteiraPage })));
@@ -61,11 +64,170 @@ function greeting() {
   return "Boa noite";
 }
 
+function NavButton({
+  label,
+  tooltip,
+  icon: Icon,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  tooltip: string;
+  icon: any;
+  isActive?: boolean;
+  onClick: () => void;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const timerRef = useRef<any>(null);
+
+  const startPress = () => {
+    timerRef.current = setTimeout(() => {
+      setShowTooltip(true);
+    }, 300);
+  };
+
+  const endPress = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setShowTooltip(false);
+  };
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.9 }}
+            animate={{ opacity: 1, y: -42, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="absolute bottom-full mb-2 px-2.5 py-1 rounded-xl bg-popover/95 text-popover-foreground border border-border/80 shadow-md text-[11px] font-medium whitespace-nowrap z-50 pointer-events-none flex items-center gap-1.5"
+          >
+            <span>{tooltip}</span>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-popover/95" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => {
+          endPress();
+          setShowTooltip(false);
+        }}
+        onTouchStart={startPress}
+        onTouchEnd={endPress}
+        aria-label={label}
+        className={`relative flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 cursor-pointer select-none ${
+          isActive ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground font-medium"
+        }`}
+      >
+        {isActive && (
+          <motion.span
+            layoutId="nav-pill"
+            className="absolute inset-0 rounded-full bg-primary/10 dark:bg-primary/20"
+            transition={{ type: "spring", stiffness: 450, damping: 35 }}
+          />
+        )}
+        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="relative z-10" />
+        <span className="text-xs tracking-tight relative z-10">{label}</span>
+      </button>
+    </div>
+  );
+}
+
+function NavActionButton({
+  label,
+  tooltip,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  tooltip: string;
+  icon: any;
+  onClick: () => void;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const timerRef = useRef<any>(null);
+
+  const startPress = () => {
+    timerRef.current = setTimeout(() => {
+      setShowTooltip(true);
+    }, 300);
+  };
+
+  const endPress = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setShowTooltip(false);
+  };
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.9 }}
+            animate={{ opacity: 1, y: -48, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="absolute bottom-full mb-2 px-2.5 py-1 rounded-xl bg-popover/95 text-popover-foreground border border-border/80 shadow-md text-[11px] font-medium whitespace-nowrap z-50 pointer-events-none flex items-center gap-1.5"
+          >
+            <span>{tooltip}</span>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-popover/95" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => {
+          endPress();
+          setShowTooltip(false);
+        }}
+        onTouchStart={startPress}
+        onTouchEnd={endPress}
+        aria-label={label}
+        className="group relative flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-indigo-600 text-primary-foreground shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 active:scale-90 transition-all cursor-pointer select-none"
+      >
+        <Icon size={20} strokeWidth={2.5} className="transition-transform group-hover:rotate-90 duration-300" />
+      </button>
+    </div>
+  );
+}
+
 function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const { state, dispatch } = useFinance();
   const { receitas, despesas, saldo } = getMonthSummary(state, state.currentMonth);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [page, setPage] = useState<Page>("dashboard");
+  const [activeProfile, setActiveProfile] = useState<ProfileType>("personal");
+
+  // Route Guard verification for onboarding status
+  const isUserOnboarded = Boolean(
+    user?.hasCompletedOnboarding === true ||
+    user?.isFirstLogin === false ||
+    (typeof window !== "undefined" && user?.uid && localStorage.getItem(`has-completed-onboarding-${user.uid}`) === "true")
+  );
+
+  const [page, setPage] = useState<Page>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const casaId = params.get("casa") || params.get("invite");
+      if (casaId) {
+        try { localStorage.setItem("pending-home-id", casaId); } catch {}
+        return "onboarding";
+      }
+    }
+    return isUserOnboarded ? "dashboard" : "onboarding";
+  });
+
+  // ROUTE GUARD EFFECT: Force user to onboarding page if first login or onboarding incomplete
+  useEffect(() => {
+    if (!isUserOnboarded && page !== "onboarding") {
+      setPage("onboarding");
+      toast.info("Primeiro acesso! Por favor, conclua a entrevista com a Lud para liberar seu painel.");
+    }
+  }, [isUserOnboarded, page]);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -86,7 +248,39 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [showHomeSettings, setShowHomeSettings] = useState(false);
   const [activeCard, setActiveCard] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [homeData, setHomeData] = useState<{ name?: string; photoURL?: string } | null>(null);
   const selectedCard = state.cards[Math.min(activeCard, state.cards.length - 1)];
+
+  // Fetch house photo and name from Firestore
+  useEffect(() => {
+    if (user?.homeId) {
+      getDoc(doc(db, "homes", user.homeId)).then((d) => {
+        if (d.exists()) {
+          const data = d.data() as any;
+          setHomeData(data);
+          if (data.name) {
+            try { localStorage.setItem("finance-house-name", data.name); } catch {}
+          }
+        }
+      });
+    } else {
+      const cachedName = typeof window !== "undefined" ? localStorage.getItem("finance-house-name") : null;
+      if (cachedName) {
+        setHomeData({ name: cachedName, photoURL: "" });
+      } else {
+        setHomeData(null);
+      }
+    }
+  }, [user?.homeId, showHomeSettings]);
+
+  // Keep page and activeProfile synchronized
+  useEffect(() => {
+    if (page === "casa") {
+      setActiveProfile("casa");
+    } else if (page === "dashboard") {
+      setActiveProfile("personal");
+    }
+  }, [page]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -96,7 +290,6 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
 
   const navItems: { id: Page; label: string; icon: any }[] = [
     { id: "dashboard", label: "Início", icon: LayoutDashboard },
-    { id: "casa", label: "Casa", icon: Home },
     { id: "carteira", label: "Carteira", icon: Wallet },
   ];
 
@@ -116,23 +309,39 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     return (
       <Suspense fallback={<div className="size-full bg-background flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div></div>}>
         <OnboardingPage
-          onComplete={() => setPage("dashboard")}
-          onBackToDashboard={() => setPage("dashboard")}
+          onComplete={() => {
+            if (user) {
+              user.hasCompletedOnboarding = true;
+              user.isFirstLogin = false;
+            }
+            try {
+              localStorage.setItem("has-completed-onboarding", "true");
+              if (user?.uid) localStorage.setItem(`has-completed-onboarding-${user.uid}`, "true");
+            } catch {}
+            setPage("dashboard");
+          }}
+          onBackToDashboard={() => {
+            if (!isUserOnboarded) {
+              toast.warning("Para acessar o painel principal, conclua ou pule a entrevista de boas-vindas.");
+              return;
+            }
+            setPage("dashboard");
+          }}
         />
       </Suspense>
     );
   }
 
   return (
-    <div className="size-full flex items-center justify-center bg-background">
-      <div className="relative w-full max-w-[390px] h-full max-h-[844px] bg-background text-foreground flex flex-col overflow-hidden rounded-[40px] shadow-2xl">
+    <div className="size-full flex items-center justify-center bg-background overflow-hidden">
+      <div className="relative w-full h-full sm:max-w-[390px] sm:max-h-[844px] bg-background text-foreground flex flex-col overflow-hidden sm:rounded-[40px] shadow-2xl">
         {/* Header — Unified inline header + balance bar */}
-        {page === "dashboard" ? (
+        {page === "dashboard" || page === "casa" ? (
           <motion.header
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col px-5 pt-5 pb-4 shrink-0 bg-background border-b border-border/40 gap-3 relative overflow-hidden"
+            className="flex flex-col px-5 pt-[calc(max(20px,env(safe-area-inset-top)))] pb-4 shrink-0 bg-background border-b border-border/40 gap-3 relative z-30"
           >
             <div className="absolute -right-16 -top-16 w-32 h-32 rounded-full bg-primary/[0.015] blur-3xl pointer-events-none" />
             <div className="absolute -left-16 -bottom-16 w-32 h-32 rounded-full bg-primary/[0.015] blur-3xl pointer-events-none" />
@@ -141,26 +350,53 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             <div className="flex justify-between items-start w-full relative z-10 mt-1">
               {/* Left Column: User identity & Month Selection */}
               <div className="flex items-center gap-3 mt-1">
-                <button
-                  onClick={() => setMenuOpen((v) => !v)}
-                  aria-label="Conta"
-                  className="active:scale-[0.98] transition-transform shrink-0"
-                >
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt={user.name} className="w-12 h-12 rounded-full object-cover shadow-sm border border-border" />
-                  ) : (
-                    <span className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-lg font-bold text-primary-foreground shadow-sm">
-                      {user.initials}
-                    </span>
-                  )}
-                </button>
+                <StackedAvatars
+                  activeProfile={activeProfile}
+                  personalProfile={{
+                    id: user.uid,
+                    name: user.name,
+                    photoURL: user.photoURL,
+                    initials: user.initials,
+                    subtitle: "Conta Pessoal",
+                  }}
+                  casaProfile={{
+                    id: user.homeId || "casa",
+                    name: homeData?.name || "Nossa Casa",
+                    photoURL: homeData?.photoURL || "",
+                    subtitle: user.homeId ? "Gestão Compartilhada" : "Criar/Acessar Casa",
+                  }}
+                  onProfileChange={(newProfile) => {
+                    setActiveProfile(newProfile);
+                    if (newProfile === "casa") {
+                      setPage("casa");
+                      toast.info("Perfil Casa selecionado");
+                    } else {
+                      setPage("dashboard");
+                      toast.info("Perfil Pessoal selecionado");
+                    }
+                  }}
+                  onOpenSettings={(prof) => {
+                    if (prof === "casa") {
+                      setShowHomeSettings(true);
+                    } else {
+                      setMenuOpen(true);
+                    }
+                  }}
+                  size="md"
+                />
                 
                 <div className="flex flex-col gap-0.5 justify-center">
                   <button
-                    onClick={() => setMenuOpen((v) => !v)}
-                    className="text-base font-bold text-foreground tracking-tight text-left active:scale-[0.98] transition-transform"
+                    onClick={() => {
+                      if (activeProfile === "casa") {
+                        setShowHomeSettings(true);
+                      } else {
+                        setMenuOpen(true);
+                      }
+                    }}
+                    className="text-base font-bold text-foreground tracking-tight text-left active:scale-[0.98] transition-transform truncate max-w-[140px]"
                   >
-                    Olá, {user.name.split(" ")[0]}
+                    {activeProfile === "casa" ? (homeData?.name || "Nossa Casa") : `Olá, ${user.name.split(" ")[0]}`}
                   </button>
                   
                   {/* Month Selector: Inline control below the name */}
@@ -190,7 +426,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
               >
                 {/* Line 1: Balance */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-wider">Conta</span>
+                  <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-wider">Saldo do Mês</span>
                   <span className="text-sm font-extrabold text-foreground font-sans tracking-tight group-hover:text-primary transition-colors">
                     {money(saldo, state.hideBalances)}
                   </span>
@@ -317,7 +553,7 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
         )}
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto px-5 pb-6 scrollbar-hide">
+        <main className="flex-1 overflow-y-auto px-5 pb-24 scrollbar-hide">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={page}
@@ -363,56 +599,36 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           </AnimatePresence>
         </main>
 
-        {/* Integrated Clean Navigation Bar */}
-        <nav className="shrink-0 flex items-center justify-around border-t border-border/80 bg-background/95 backdrop-blur-md px-3 pb-4 pt-2 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.3)] z-50">
+        {/* Floating Pill Navigation Bar (Estilo Nubank / WhatsApp / Instagram com Tooltips e mesmo background do main) */}
+        <nav className="absolute bottom-[calc(max(10px,env(safe-area-inset-bottom)))] left-1/2 -translate-x-1/2 w-[300px] bg-background/95 backdrop-blur-xl border border-border/80 rounded-full pl-2 pt-1.5 pr-2 pb-1.5 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.12)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] flex items-center justify-around z-50">
           {/* Início */}
-          <button
-            onClick={() => setPage("dashboard")}
-            aria-label="Início"
-            className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer ${page === "dashboard" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {page === "dashboard" && (
-              <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-muted" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
-            )}
-            <LayoutDashboard size={20} strokeWidth={page === "dashboard" ? 2.5 : 1.8} className="relative" />
-            <span className="text-[10px] font-semibold tracking-wide relative">Início</span>
-          </button>
+          <NavButton
+            label="Início"
+            tooltip="Início: Fluxo e resumo das finanças"
+            icon={LayoutDashboard}
+            isActive={page === "dashboard"}
+            onClick={() => {
+              setActiveProfile("personal");
+              setPage("dashboard");
+            }}
+          />
 
-          {/* Casa */}
-          <button
-            onClick={() => setPage("casa")}
-            aria-label="Casa"
-            className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer ${page === "casa" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {page === "casa" && (
-              <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-muted" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
-            )}
-            <Home size={20} strokeWidth={page === "casa" ? 2.5 : 1.8} className="relative" />
-            <span className="text-[10px] font-semibold tracking-wide relative">Casa</span>
-          </button>
-
-          {/* Novo Lançamento */}
-          <button
+          {/* Center Action Button: Plus / Novo */}
+          <NavActionButton
+            label="Novo"
+            tooltip="Novo: Registrar movimentação"
+            icon={PlusCircle}
             onClick={() => setShowTxChoice(true)}
-            aria-label="Novo Lançamento"
-            className="relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer text-muted-foreground hover:text-foreground active:scale-95"
-          >
-            <PlusCircle size={20} strokeWidth={1.8} className="relative" />
-            <span className="text-[10px] font-semibold tracking-wide relative">Novo</span>
-          </button>
+          />
 
           {/* Carteira */}
-          <button
+          <NavButton
+            label="Carteira"
+            tooltip="Carteira: Cartões, bancos e limites"
+            icon={Wallet}
+            isActive={page === "carteira"}
             onClick={() => setPage("carteira")}
-            aria-label="Carteira"
-            className={`relative flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors cursor-pointer ${page === "carteira" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {page === "carteira" && (
-              <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-muted" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
-            )}
-            <Wallet size={20} strokeWidth={page === "carteira" ? 2.5 : 1.8} className="relative" />
-            <span className="text-[10px] font-semibold tracking-wide relative">Carteira</span>
-          </button>
+          />
         </nav>
       </div>
 
@@ -480,23 +696,64 @@ function Shell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           </button>
 
           <button
-            onClick={() => {
+            onClick={async () => {
               if (!confirmReset) {
                 setConfirmReset(true);
               } else {
-                dispatch({ type: "CLEAR_ALL_DATA" });
-                toast.success("Todos os dados, transações e saldos foram zerados!");
-                setConfirmReset(false);
-                setMenuOpen(false);
+                try {
+                  dispatch({ type: "CLEAR_ALL_DATA" });
+                  
+                  // Clear localStorage
+                  localStorage.removeItem("has-completed-onboarding");
+                  localStorage.removeItem("finance-app-state-v1");
+                  localStorage.removeItem("finance-house-name");
+                  localStorage.removeItem("pending-home-id");
+                  if (user?.uid) {
+                    localStorage.removeItem(`has-completed-onboarding-${user.uid}`);
+                    localStorage.removeItem(`finance-app-state-${user.uid}`);
+                  }
+
+                  // Update user state flags
+                  if (user) {
+                    user.isFirstLogin = true;
+                    user.hasCompletedOnboarding = false;
+                    user.homeId = undefined;
+                  }
+
+                  // Update Firestore
+                  if (user?.uid && isFirebaseConfigured) {
+                    const { doc, setDoc, deleteField } = await import("firebase/firestore");
+                    await setDoc(doc(db, "users", user.uid), {
+                      isFirstLogin: true,
+                      hasCompletedOnboarding: false,
+                      homeId: deleteField(),
+                      transactions: [],
+                      faturas: [],
+                      cards: [],
+                      goals: [],
+                      budgets: [],
+                      rules: [],
+                    }, { merge: true });
+                  }
+
+                  toast.success("Todos os dados, casa e onboarding foram zerados! Redirecionando...");
+                  setConfirmReset(false);
+                  setMenuOpen(false);
+                  setPage("onboarding");
+                } catch (err) {
+                  console.error("Erro ao resetar dados:", err);
+                  toast.error("Erro ao zerar dados. Tente novamente.");
+                }
               }
             }}
-            className={`w-full flex items-center justify-center gap-2 font-bold py-4 rounded-xl text-sm active:scale-[0.98] transition-all ${
+            className={`w-full flex items-center justify-center gap-2 font-bold py-4 rounded-xl text-sm active:scale-[0.98] transition-all cursor-pointer ${
               confirmReset
-                ? "bg-rose-500 text-white animate-pulse"
+                ? "bg-rose-600 text-white animate-pulse shadow-lg shadow-rose-500/20"
                 : "bg-orange-500/10 text-orange-500 border border-orange-500/20 hover:bg-orange-500/20"
             }`}
           >
-            {confirmReset ? "Confirmar: Apagar tudo mesmo?" : "Zerar todos os dados e saldos"}
+            <RotateCcw size={15} />
+            {confirmReset ? "Confirmar: Zerar TUDO (Dados, Casa e Onboarding)?" : "Zerar todos os dados & Testar Onboarding"}
           </button>
 
           <button
@@ -519,6 +776,7 @@ function AppToaster() {
     <Toaster
       theme="dark"
       position="top-center"
+      duration={2000}
       toastOptions={{
         style: {
           background: "var(--popover)",
@@ -531,61 +789,112 @@ function AppToaster() {
 }
 
 export default function App() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = localStorage.getItem("current-auth-user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [ready, setReady] = useState(true);
+
+  // Sync state to localStorage whenever user changes
+  useEffect(() => {
+    try {
+      if (user) {
+        localStorage.setItem("current-auth-user", JSON.stringify(user));
+      } else {
+        localStorage.removeItem("current-auth-user");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [user]);
 
   useEffect(() => {
-    let unsubUserDoc = () => {};
-    import("firebase/auth").then(({ onAuthStateChanged }) => {
-      const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
+    if (!isFirebaseConfigured) {
+      setReady(true);
+      return;
+    }
+    import("firebase/auth").then(({ onAuthStateChanged, getRedirectResult, setPersistence, browserLocalPersistence }) => {
+      setPersistence(auth, browserLocalPersistence).catch(() => {});
+      getRedirectResult(auth).catch(() => {});
+
+      onAuthStateChanged(auth, async (fUser) => {
         if (fUser) {
           try {
-            const { doc, onSnapshot } = await import("firebase/firestore");
-            unsubUserDoc = onSnapshot(doc(db, "users", fUser.uid), (userDoc) => {
-              const homeId = userDoc.exists() ? userDoc.data().homeId : undefined;
-              const initials = (fUser.displayName || "U")
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase();
-              
-              setUser({
-                uid: fUser.uid,
+            const { doc, getDoc, setDoc } = await import("firebase/firestore");
+            const userRef = doc(db, "users", fUser.uid);
+            const userDoc = await getDoc(userRef).catch(() => null);
+
+            let homeId: string | undefined;
+            let isFirstLogin = true;
+            let hasCompletedOnboarding = false;
+
+            if (userDoc && userDoc.exists()) {
+              const uData = userDoc.data();
+              homeId = uData.homeId;
+              hasCompletedOnboarding = uData.hasCompletedOnboarding === true || uData.isFirstLogin === false;
+              isFirstLogin = uData.isFirstLogin ?? !hasCompletedOnboarding;
+            } else {
+              await setDoc(userRef, {
+                isFirstLogin: true,
+                hasCompletedOnboarding: false,
                 name: fUser.displayName || "Usuário",
                 email: fUser.email || "",
-                initials,
-                provider: "google",
-                photoURL: fUser.photoURL || undefined,
-                homeId
-              });
-              setReady(true);
+                createdAt: new Date().toISOString(),
+              }, { merge: true }).catch(() => {});
+            }
+
+            const name = fUser.displayName || "Usuário";
+            const email = fUser.email || "";
+            const photoURL = fUser.photoURL || undefined;
+            const initials = name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
+
+            setUser({
+              uid: fUser.uid,
+              name,
+              email,
+              initials,
+              provider: "google",
+              photoURL,
+              homeId,
+              isFirstLogin,
+              hasCompletedOnboarding,
             });
+            setReady(true);
           } catch (e) {
             console.error("Error loading user data", e);
-            setUser(null);
             setReady(true);
           }
         } else {
-          unsubUserDoc();
-          setUser(null);
           setReady(true);
         }
       });
     });
-    return () => unsubUserDoc();
   }, []);
 
   const login = (u: AuthUser) => {
+    try {
+      localStorage.setItem("current-auth-user", JSON.stringify(u));
+    } catch {}
     setUser(u);
-    toast.success(`Bem-vinda, ${u.name.split(" ")[0]}!`);
+    toast.success(`Bem-vindo(a), ${u.name.split(" ")[0]}!`);
   };
 
   const logout = () => {
     try {
-      signOut(auth).then(() => setUser(null)).catch((err) => console.error("Error signing out from Firebase:", err));
+      localStorage.removeItem("current-auth-user");
+      signOut(auth).then(() => setUser(null)).catch(() => setUser(null));
     } catch {
-      /* ignore */
+      setUser(null);
     }
   };
 
